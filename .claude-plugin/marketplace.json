@@ -1,0 +1,30 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "mac-maintenance-skills",
+  "description": "Claude Code skills for cleaning up and speeding up a Mac: a read-only survey of what takes space and memory, a safe tier that removes only caches programs recreate, hash-verified duplicate files moved to the Trash, and leftovers of uninstalled apps. Standard-library scripts, no network.",
+  "owner": {
+    "name": "Muhammad Basit Ali",
+    "url": "https://github.com/basitalisandhu"
+  },
+  "metadata": {
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "mac-maintenance",
+      "source": "./plugins/mac-maintenance",
+      "description": "Three skills, each with a tested standard-library script: mac-cleanup (survey, safe tier, decision report), mac-duplicate-finder and mac-app-leftovers.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Muhammad Basit Ali",
+        "url": "https://github.com/basitalisandhu"
+      },
+      "homepage": "https://github.com/basitalisandhu/mac-maintenance-skills",
+      "repository": "https://github.com/basitalisandhu/mac-maintenance-skills",
+      "license": "MIT",
+      "keywords": ["macos", "cleanup", "disk-space", "duplicate-files", "caches", "docker", "homebrew", "uninstall-leftovers"],
+      "category": "productivity",
+      "tags": ["macos", "cleanup", "disk-space", "maintenance"]
+    }
+  ]
+}

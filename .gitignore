@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local output from the skill scripts
+mac-survey.json
+mac-cleanup-*/
+duplicates.txt
+suffix-copies.txt
+folder-pairs.txt
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

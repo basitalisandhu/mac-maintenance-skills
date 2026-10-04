@@ -1,0 +1,81 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate structure, skills and house style
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+      - name: Repository validator
+        run: python3 scripts/validate_plugin.py
+
+  tests:
+    name: Tests and lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python3 -m pip install pytest ruff
+      - run: ruff check .
+      - run: python3 -m pytest -q
+
+  dry-run-on-macos:
+    name: Dry run of every script on a macOS runner
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Survey (fast), plan (no apply), duplicates and leftovers against the runner's home
+        run: |
+          python3 plugins/mac-maintenance/skills/mac-cleanup/scripts/mac_survey.py --fast --top 5 --quiet || true
+          python3 plugins/mac-maintenance/skills/mac-cleanup/scripts/safe_clean.py --json > /dev/null || true
+          python3 plugins/mac-maintenance/skills/mac-duplicate-finder/scripts/find_dupes.py "$HOME" --quiet --top 3 || true
+          python3 plugins/mac-maintenance/skills/mac-app-leftovers/scripts/app_leftovers.py --top 5 || true
+
+  claude-plugin-validate:
+    name: claude plugin validate --strict
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "22"
+      - name: Install the Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate the marketplace and the plugin
+        run: |
+          claude plugin validate --strict .
+          claude plugin validate --strict plugins/mac-maintenance
