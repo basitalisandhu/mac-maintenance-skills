@@ -9,6 +9,8 @@ mac-maintenance-skills is a Claude Code plugin with three skills for people whos
 /plugin install mac-maintenance@mac-maintenance-skills
 ```
 
+This pack is also part of [claude-skills](https://github.com/basitalisandhu/claude-skills), which holds every skill I maintain as one marketplace: `/plugin marketplace add basitalisandhu/claude-skills`.
+
 Quickstart: open Claude Code and ask "look at my Mac and clean up the garbage", or run a script directly from a clone of this repository:
 
 ```bash
@@ -111,6 +113,7 @@ No, and it never asks for it. Launch daemons under `/Library/LaunchDaemons` whos
 | [repo-engineering-skills](https://github.com/basitalisandhu/repo-engineering-skills) | Claude Code skills for repository audits and documentation: docs checked against the code, audits where every finding cites a line |
 | [claude-dev-skills](https://github.com/basitalisandhu/claude-dev-skills) | Claude Code skills for everyday development: code review, refactoring, debugging, CI and containers, data and APIs |
 | [aws-security-skills](https://github.com/basitalisandhu/aws-security-skills) | AWS security skills for Claude Code: account audit, SCP guardrails, IAM least privilege, Security Hub triage |
+| [claude-skills: one install script for every pack](https://github.com/basitalisandhu/claude-skills) | All packs in one repository; this plugin's pages are at https://basitalisandhu.github.io/claude-skills/plugins/mac-maintenance/ |
 
 More from the author: [github.com/basitalisandhu](https://github.com/basitalisandhu).
 
