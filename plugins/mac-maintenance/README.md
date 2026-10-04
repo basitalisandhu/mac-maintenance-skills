@@ -32,4 +32,4 @@ The scripts need to run on the Mac being cleaned, so use the skills from Claude 
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE). Source, tests and issues: [github.com/basitalisandhu/mac-maintenance-skills](https://github.com/basitalisandhu/mac-maintenance-skills).
+MIT. See [LICENSE](LICENSE). Privacy: [PRIVACY.md](PRIVACY.md) (nothing is collected or sent). Source, tests and issues: [github.com/basitalisandhu/mac-maintenance-skills](https://github.com/basitalisandhu/mac-maintenance-skills).

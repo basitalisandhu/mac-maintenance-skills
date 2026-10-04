@@ -66,7 +66,7 @@ Each skill folder is self-contained: its scripts live inside it, so it can be co
 - **The duplicate and leftover scripts move, never delete.** Moves go to a dated folder under `~/.Trash` with the relative path kept; a copy is re-hashed against its original at the moment of the move; sandboxed containers macOS refuses are reported, not forced.
 - **No sudo, no network, no telemetry.** System-level launch daemons are listed with the command for you to run.
 
-Report security problems privately: see [SECURITY.md](SECURITY.md).
+Report security problems privately: see [SECURITY.md](SECURITY.md). Privacy: [PRIVACY.md](PRIVACY.md), which says in plain words that nothing is collected or sent.
 
 ## A worked example
 
