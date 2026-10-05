@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-05
+
+### Changed
+
+- mac-cleanup's description now leads with the goal (free disk space and speed up a Mac) and quotes "my Mac feels slow", the way people ask. On the labelled trigger prompts recall rose from 0.60 to 1.00, and precision against other skills' prompts from 0.75 to 1.00 (the old quoted "System Data" also matched an unrelated threat-model request).
+- `scripts/validate_plugin.py` now fails on a description without a double-quoted trigger phrase of 2 to 8 words, with tests.
+
 ## [0.1.2] - 2026-10-05
 
 ### Changed
