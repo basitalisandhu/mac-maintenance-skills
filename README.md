@@ -4,6 +4,8 @@
 
 mac-maintenance-skills is a Claude Code plugin with three skills for people whose Mac has filled up with caches, duplicate exports, leftovers of uninstalled apps and a few gigabytes pinned in memory, and who do not want a cleaner that guesses. It exists because the usual cleanup either deletes too little to matter or deletes something that mattered: each skill pairs the model's judgement with a standard-library Python script that measures before it proposes, removes only regenerable caches on its own, and moves anything of yours to a dated folder in the Trash instead of deleting it.
 
+Common searches it answers: "System Data is huge", a Docker.raw file that keeps growing, and duplicate photos or leftovers of uninstalled apps. Time Machine local snapshots are out of scope.
+
 ```text
 /plugin marketplace add basitalisandhu/mac-maintenance-skills
 /plugin install mac-maintenance@mac-maintenance-skills
