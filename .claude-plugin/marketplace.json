@@ -7,14 +7,14 @@
     "url": "https://github.com/basitalisandhu"
   },
   "metadata": {
-    "version": "0.1.1"
+    "version": "0.1.2"
   },
   "plugins": [
     {
       "name": "mac-maintenance",
       "source": "./plugins/mac-maintenance",
       "description": "Three skills, each with a tested standard-library script: mac-cleanup (survey, safe tier, decision report), mac-duplicate-finder and mac-app-leftovers.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "Muhammad Basit Ali",
         "url": "https://github.com/basitalisandhu"

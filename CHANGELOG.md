@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-05
+
+### Changed
+
+- Rewrote all three skill descriptions to 374 to 546 characters (from 767 to 1,012): each starts with a verb, states the goal before the mechanism, carries one quoted phrase a user would type, a "Use when ..." sentence and a "Not for ..." boundary, and stays double-quoted.
+- `app_leftovers.py` no longer calls `os.getuid` unguarded: where it does not exist the launch agent fix command leaves the uid to the shell (`gui/$(id -u)`), with a test.
+- Tests open text files with `encoding="utf-8"` (the scripts already did). CI keeps Ubuntu and macOS only: the skills are macOS-only by design, so there is no Windows leg.
+- The plugin and root READMEs mention "System Data is huge", Docker.raw and Time Machine local snapshots (out of scope, with the command that lists them).
+- `scripts/validate_plugin.py` now fails when a description is over 600 characters, is not double-quoted, or lacks "Use " or "Not for"; `tests/test_skill_frontmatter.py` covers each rule and the existing `## Limits` requirement.
+- Version 0.1.2 in `plugin.json` and `marketplace.json`.
+
 ## [0.1.1] - 2026-10-04
 
 ### Fixed

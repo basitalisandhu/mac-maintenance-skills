@@ -50,7 +50,7 @@ def entry(home, area, name, text="x" * 2048):
         path.write_bytes(plistlib.dumps({"k": "v"}))
     else:
         path.mkdir(parents=True)
-        (path / "data.txt").write_text(text)
+        (path / "data.txt").write_text(text, encoding="utf-8")
     return path
 
 
@@ -125,7 +125,7 @@ def test_apple_preferences_are_never_candidates(home, apps):
 def test_only_plist_files_are_candidates_in_preferences(home, apps):
     prefs = home / "Library" / "Preferences"
     prefs.mkdir()
-    (prefs / "notes.txt").write_text("x")
+    (prefs / "notes.txt").write_text("x", encoding="utf-8")
     entry(home, "Preferences", "io.vendorx.gone.plist")
     _, rep = scan(home, apps)
     assert ids(rep) == {"preferences:io.vendorx.gone.plist"}
@@ -179,6 +179,19 @@ def test_launch_agent_with_a_missing_program_is_listed_with_a_fix(home, apps):
     assert rc == 1
 
 
+
+def test_launch_agent_fix_does_not_need_os_getuid(home, apps, monkeypatch):
+    """os.getuid is POSIX-only; without it the fix leaves the uid to the shell instead of crashing."""
+    agents = home / "Library" / "LaunchAgents"
+    agents.mkdir()
+    gone = agents / "com.gone.agent.plist"
+    gone.write_bytes(plistlib.dumps({"Label": "com.gone.agent", "ProgramArguments": ["/no/such/dir/gone"]}))
+    monkeypatch.delattr(mod.os, "getuid", raising=False)
+    rc, rep = scan(home, apps)
+    mine = [a for a in rep["startup"]["launch_agents"] if a["plist"].startswith(str(home))]
+    assert mine and "launchctl bootout gui/$(id -u) " in mine[0]["fix"]
+    assert rc == 1
+
 def test_trash_moves_the_candidate_and_keeps_its_relative_path(home, apps, tmp_path):
     path = entry(home, "Application Support", "Superhuman")
     other = entry(home, "Application Support", "Other")
@@ -186,7 +199,7 @@ def test_trash_moves_the_candidate_and_keeps_its_relative_path(home, apps, tmp_p
     rc, rep = scan(home, apps, "--trash", "app-support:Superhuman", "--trash-dir", str(trash))
     dest = trash / "Library" / "Application Support" / "Superhuman"
     assert [m["moved_to"] for m in rep["moved"]] == [str(dest)]
-    assert (dest / "data.txt").read_text() == "x" * 2048
+    assert (dest / "data.txt").read_text(encoding="utf-8") == "x" * 2048
     assert not path.exists() and other.exists()
     assert rep["failed"] == [] and rep["trash_dir"] == str(trash) and rep["moved_bytes"] > 0
     assert rc == 1
@@ -255,7 +268,7 @@ def test_a_team_id_used_by_an_installed_app_vouches_for_its_other_group_containe
 
 def test_a_command_line_tool_on_path_claims_its_data(home, apps, empty_path):
     tool = empty_path / "vendorxtool"
-    tool.write_text("#!/bin/sh\n")
+    tool.write_text("#!/bin/sh\n", encoding="utf-8")
     entry(home, "Application Support", "vendorxtool")
     entry(home, "Application Support", "Superhuman")
     _, rep = scan(home, apps)

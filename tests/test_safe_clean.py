@@ -28,7 +28,7 @@ def tmpdir_(tmp_path):
 
 def write(path, text="data" * 1024):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     return path
 
 
@@ -164,7 +164,7 @@ def test_symlinked_cache_is_refused_and_its_target_is_untouched(home, tmpdir_, t
     link.parent.mkdir(parents=True)
     link.symlink_to(elsewhere, target_is_directory=True)
     rc, result, by_id = run(home, tmpdir_, "--apply")
-    assert link.is_symlink() and keep.exists() and keep.read_text() == "data" * 1024
+    assert link.is_symlink() and keep.exists() and keep.read_text(encoding="utf-8") == "data" * 1024
     assert by_id["npm-cache" if "npm" in rel else "go-build"]["targets"] == []
 
 
@@ -212,7 +212,7 @@ def test_apply_never_touches_the_trash(home, tmpdir_):
     trash_dir_file = write(home / ".Trash" / "folder" / "y")
     rc, _, _ = run(home, tmpdir_, "--apply")
     assert rc == 0
-    assert trash_file.read_text() == "data" * 1024 and trash_dir_file.exists()
+    assert trash_file.read_text(encoding="utf-8") == "data" * 1024 and trash_dir_file.exists()
 
 
 def test_docker_stuck_installer_removes_update_downloads(home, tmpdir_):
