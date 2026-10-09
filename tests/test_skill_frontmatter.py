@@ -85,8 +85,20 @@ def test_description_over_600_chars_is_rejected():
 
 
 def test_description_without_use_or_not_for_is_rejected():
-    assert len(validator.description_problems(quoted("Check a thing. Not for other things."))) == 1
-    assert len(validator.description_problems(quoted("Check a thing. Use when asked."))) == 1
+    assert len(validator.description_problems(quoted('Check a thing "is this fine?". Not for other things.'))) == 1
+    assert len(validator.description_problems(quoted('Check a thing. Use when asked "is this fine?".'))) == 1
+
+
+@pytest.mark.parametrize("phrase", ["", '"slow?"', '"one two three four five six seven eight nine"', "'is it slow?'"])
+def test_description_without_a_trigger_phrase_of_two_to_eight_words_is_rejected(phrase):
+    problems = validator.description_problems(quoted(f"Check a thing. Use when asked {phrase}. Not for that."))
+    assert problems == ["description has no double-quoted trigger phrase of 2 to 8 words a user would type"]
+
+
+@pytest.mark.parametrize("phrase", ['"is it slow?"', '"one two three four five six seven eight"'])
+def test_trigger_phrase_of_two_to_eight_words_passes(phrase):
+    assert validator.description_problems(quoted(f"Check a thing. Use when asked {phrase}. Not for that.")) == []
+    assert validator.trigger_phrases(f'Use when {phrase} or "why".') == [phrase.strip('"')]
 
 
 @pytest.mark.parametrize("line", [

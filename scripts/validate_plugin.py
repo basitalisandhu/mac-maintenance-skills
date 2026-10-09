@@ -6,8 +6,9 @@ Checks:
     plugin.json name and version match the marketplace entry
   * every skills/<name>/SKILL.md has frontmatter with name (equal to the directory name, lowercase with hyphens, at
     most 64 chars) and description (at most 1024 chars, saying "Use when" and "Not"; by house rule one double-quoted
-    line of at most 600 chars with "Use " and "Not for"); the body is under 500 lines,
-    contains the untrusted-data line, an honesty principle and a Limits section; relative links resolve
+    line of at most 600 chars with "Use ", "Not for" and a double-quoted trigger phrase of 2 to 8 words a user would
+    type); the body is under 500 lines, contains the untrusted-data line, an honesty principle and a Limits
+    section; relative links resolve
   * every script referenced as ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/scripts/<file> exists and is executable; every
     scripts/*.py has a python3 shebang, a --json option, a main guard, answers --help with exit 0, and has a test file
     tests/test_<stem>.py
@@ -98,11 +99,18 @@ def scalar_problems(text: str) -> list[str]:
 
 
 DESCRIPTION_MAX = 600
+TRIGGER_WORDS = (2, 8)
+
+
+def trigger_phrases(desc: str) -> list[str]:
+    """Double-quoted phrases of 2 to 8 words in a parsed description: what a user would type."""
+    return [p for p in re.findall(r'"([^"\n]+)"', desc) if TRIGGER_WORDS[0] <= len(p.split()) <= TRIGGER_WORDS[1]]
 
 
 def description_problems(text: str) -> list[str]:
     """House rules for a SKILL.md description: one double-quoted line of at most 600 characters with a "Use ..."
-    sentence and a "Not for" boundary. Returns one message per broken rule (empty when there is no frontmatter)."""
+    sentence, a "Not for" boundary and a double-quoted trigger phrase of 2 to 8 words. Returns one message per broken
+    rule (empty when there is no frontmatter)."""
     if not text.startswith("---\n"):
         return []
     end = text.find("\n---", 4)
@@ -125,6 +133,8 @@ def description_problems(text: str) -> list[str]:
         problems.append('description has no "Use ..." sentence')
     if "Not for" not in desc:
         problems.append('description has no "Not for" boundary')
+    if not trigger_phrases(desc):
+        problems.append("description has no double-quoted trigger phrase of 2 to 8 words a user would type")
     return problems
 
 
