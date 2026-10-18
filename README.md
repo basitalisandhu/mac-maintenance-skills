@@ -37,7 +37,63 @@ Questions, bugs and ideas: open an issue on this repository. Security reports: s
 | `mac-duplicate-finder` | duplicate files, photos or videos; folders that mirror each other | `find_dupes.py` | byte-identical groups ordered by wasted space, a folder-pair table, and suffix copies (`IMG_1 (1).MOV` beside an identical `IMG_1.MOV`) that can be moved to a dated Trash folder after a second hash check |
 | `mac-app-leftovers` | leftovers of uninstalled apps, login items or launch agents that point at nothing | `app_leftovers.py` | candidates in Application Support, containers, caches, preferences and more that no installed app or tool claims, with size and last change; startup items with their fix commands; moves by id into a dated Trash folder |
 
-Every script reads only the paths it is given, prints a table by default and JSON with `--json`, and uses exit codes 0 (nothing found or all done), 1 (findings, or a failed action) and 2 (bad input). The cleaner is a dry run unless you pass `--apply`.
+Every script reads only the paths it is given, prints a table by default and JSON with `--json`, and states its exit codes at the end of `--help`. The cleaner is a dry run unless you pass `--apply`.
+
+| Script | 0 | 1 | 2 |
+|---|---|---|---|
+| `mac_survey.py` | no cleanup candidates | candidates listed | bad input or usage |
+| `safe_clean.py` | dry run: nothing to clean; `--apply`: every action succeeded | dry run: something to clean; `--apply`: an action failed | bad input or usage |
+| `find_dupes.py` | no duplicate groups | duplicates found (or copies moved) | bad input or usage |
+| `app_leftovers.py` | no candidates or startup leftovers | something found (or moved) | bad input or usage, including a `--trash` id that is not a candidate in this run (then nothing moves) |
+
+Bad input or usage means a home or root that is not a folder, a negative or non-numeric number option, or an output or log path that cannot be written; each is checked before the scan starts and reported in one line, never as a traceback.
+
+## Try it on a demo home
+
+`scripts/demo_home.py` builds a small synthetic home folder (two duplicate pairs, leftovers of an app that is not installed, an npm cache and an old log) so you can see every script's output before pointing it at your own Mac. Real output from a clone, run from the repository root:
+
+```console
+$ python3 scripts/demo_home.py demo-home
+Demo home written to demo-home: 10 files. See the commands in this script's --help.
+
+$ python3 plugins/mac-maintenance/skills/mac-duplicate-finder/scripts/find_dupes.py --home demo-home --quiet
+Scanned 5 files in 4 roots; 2 duplicate groups; 5.5 MB wasted
+
+Largest groups (of 2):
+      3.0 MB wasted  2 x 3.0 MB
+      demo-home/Desktop/IMG_0412 (1).MOV
+      demo-home/Desktop/IMG_0412.MOV
+      2.5 MB wasted  2 x 2.5 MB
+      demo-home/Documents/Invoices/invoice-2026-09.pdf
+      demo-home/Downloads/invoice-2026-09.pdf
+
+Folders that duplicate each other:
+      3.0 MB      1 groups  Desktop (copies inside it)
+      2.5 MB      1 groups  Documents/Invoices <-> Downloads
+
+Suffix copies next to an identical original: 1 files, 3.0 MB
+
+$ python3 plugins/mac-maintenance/skills/mac-app-leftovers/scripts/app_leftovers.py --home demo-home --apps-dir demo-home/Applications --no-commands
+Installed apps known: 0 (bundle ids), scanned 9 areas under demo-home/Library
+
+Leftover candidates (3, 6.0 MB); confirm each before moving it:
+      4.0 MB  changed 2026-10-18  app data                    app-support:QuillNote
+      2.0 MB  changed 2026-10-18  cache or log (regenerable)  caches:net.quillnote.QuillNote
+        4 KB  changed 2026-10-18  app data                    preferences:net.quillnote.QuillNote.plist
+
+$ python3 plugins/mac-maintenance/skills/mac-cleanup/scripts/safe_clean.py --home demo-home --tmpdir demo-home/tmp --no-commands --only npm-cache,old-logs,xcode-derived-data
+Mode: dry run (nothing changed; add --apply)
+
+  planned            3.0 MB  npm-cache                npm download cache
+                                                      npm re-downloads packages on the next install
+  nothing to do              xcode-derived-data       Xcode DerivedData
+                                                      Xcode rebuilds
+  planned             28 KB  old-logs                 log files older than 7 days
+
+Planned or done: 3.0 MB across 2 actions
+```
+
+The leftover check also counts tools on your `PATH` as installed, so on another machine its list can be shorter.
 
 ## How this differs from what you may already have
 
@@ -58,6 +114,7 @@ plugins/mac-maintenance/
     └── scripts/<script>.py                           standard library only, --help, --json, exit codes 0/1/2
 tests/test_<script>.py                                pytest suite, offline, runs on macOS and Linux
 scripts/validate_plugin.py                            structure, frontmatter, scripts, READMEs, house style
+scripts/demo_home.py                                  builds the synthetic demo home used for the samples above
 ```
 
 Each skill folder is self-contained: its scripts live inside it, so it can be copied on its own.

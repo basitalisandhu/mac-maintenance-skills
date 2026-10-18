@@ -213,7 +213,7 @@ def test_trashing_an_id_that_is_not_a_candidate_fails(home, apps, tmp_path, no_s
     assert rep["moved"] == [] and keep.exists()
     assert sorted(f["id"] for f in rep["failed"]) == ["app-support:Known", "app-support:Missing"]
     assert all("not a candidate" in f["error"] for f in rep["failed"])
-    assert rc == 0
+    assert rc == 2  # a requested move that cannot happen is bad input, not "nothing found"
 
 
 def test_trash_does_not_overwrite_an_existing_destination(home, apps, tmp_path):

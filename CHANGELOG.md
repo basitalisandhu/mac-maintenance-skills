@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-18
+
+### Fixed
+
+- `mac_survey.py --out` into a missing folder, and `find_dupes.py --out-dir` pointing at a file, crashed with a traceback and exit 1 after the whole scan; `safe_clean.py --log` that could not be written did the same. Each is now checked before the scan and exits 2 with one line.
+- Negative, zero or non-numeric `--top`, `--timeout`, `--large-mb`, `--node-mb`, `--pair-depth`, `--min-mb`, `--npx-days` and `--log-days` were accepted (a negative `--top` printed empty tables). They are usage errors now (exit 2); `--min-mb 0` and `--log-days 0` stay allowed.
+- `app_leftovers.py --trash` took a malformed id such as `nocolon` and exited 0 with "not a candidate", which read as success. Malformed ids are refused before the scan, and if any id is not a candidate in this run nothing is moved and the exit code is 2 (before, the valid ids were moved and the exit code did not show the failure).
+- `find_dupes.py` printed a single folder under "Folders that duplicate each other" when the copies were inside it; it now says "Desktop (copies inside it)".
+
+### Added
+
+- `scripts/demo_home.py` builds a synthetic home folder with planted duplicates, app leftovers, an npm cache and an old log, so a first-time user can see every script's output before running it on their own Mac. The README shows its real output.
+- Every script's `--help` ends with its exit codes; the README has one exit code table and each SKILL.md the same wording, including `mac_survey.py`, whose codes were not documented.
+- `tests/test_bad_input.py` and `tests/test_demo_home.py`: 126 tests before, 183 after.
+
+### Changed
+
+- Version 0.1.4 in `plugin.json` and `marketplace.json`.
+
 ## [0.1.3] - 2026-10-05
 
 ### Changed
