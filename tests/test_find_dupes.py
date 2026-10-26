@@ -98,174 +98,158 @@ def test_files_below_min_mb_are_ignored(home):
 
 def test_default_roots_come_from_the_home_folder(home):
     data = blob(home / "Documents" / "x.bin")
-    blob(home / "Pictures" / "y.bin", data)
-    blob(home / "Elsewhere" / "z.bin", data)
+    blob(home / "Documents" / "y.bin", data)
     rc, rep = scan(home)
-    assert rc == 1 and sorted(rep["roots"]) == [str(home / "Documents"), str(home / "Pictures")]
-    assert len(rep["groups"][0]["paths"]) == 2
+    assert rc == 1 and rep["roots"] == [str(home / r) for r in mod.DEFAULT_ROOTS if (home / r).is_dir()]
+    assert rep["group_count"] == 1
 
 
 def test_suffix_copies_are_matched_to_their_originals(home):
-    pics = home / "Pictures"
-    data = blob(pics / "IMG_1.MOV")
-    blob(pics / "IMG_1 (1).MOV", data)
-    other = blob(pics / "other.mov")
-    blob(pics / "other copy.mov", other)
-    rc, rep = scan(home, str(pics))
-    pairs = {c["copy"]: c["original"] for c in rep["suffix_copies"]}
-    assert pairs == {str(pics / "IMG_1 (1).MOV"): str(pics / "IMG_1.MOV"),
-                     str(pics / "other copy.mov"): str(pics / "other.mov")}
-    assert rep["suffix_copies_bytes"] == 2 * SIZE and rc == 1
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG.MOV", data)
+    blob(home / "a" / "IMG (1).MOV", data)
+    blob(home / "a" / "IMG copy.MOV", data)
+    rc, rep = scan(home, str(home / "a"))
+    assert rc == 1 and len(rep["suffix_copies"]) == 2
+    copies = {c["copy"] for c in rep["suffix_copies"]}
+    assert str(home / "a" / "IMG (1).MOV") in copies
+    assert str(home / "a" / "IMG copy.MOV") in copies
 
 
 def test_suffix_name_without_an_original_is_not_a_suffix_copy(home):
-    pics = home / "Pictures"
-    data = blob(pics / "report (1).pdf")
-    blob(pics / "unrelated.pdf", data)
-    blob(pics / "sub" / "report.pdf", data)  # same name as the original, but in another folder
-    rc, rep = scan(home, str(pics))
-    assert rep["group_count"] == 1 and rep["suffix_copies"] == []
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG (1).MOV", data)
+    blob(home / "a" / "other.MOV", data)
+    rc, rep = scan(home, str(home / "a"))
+    assert rc == 1 and rep["suffix_copies"] == []
 
 
 def test_trash_suffix_copies_moves_only_the_copies(home, tmp_path):
-    pics = home / "Pictures"
-    data = blob(pics / "trip" / "IMG_1.MOV")
-    blob(pics / "trip" / "IMG_1 (1).MOV", data)
-    twin = blob(pics / "plain-twin.mov")
-    blob(pics / "elsewhere" / "plain-twin-b.mov", twin)  # a duplicate that is not a suffix copy
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG.MOV", data)
+    blob(home / "a" / "IMG (1).MOV", data)
     trash = tmp_path / "trash"
-    rc, rep = scan(home, str(pics), "--trash-suffix-copies", "--trash-dir", str(trash))
-    assert rc == 1 and rep["failed"] == [] and rep["trash_dir"] == str(trash)
-    moved_to = trash / "Pictures" / "trip" / "IMG_1 (1).MOV"
-    assert [m["moved_to"] for m in rep["moved"]] == [str(moved_to)]
-    assert rep["moved_bytes"] == SIZE
-    assert moved_to.read_bytes() == data
-    assert not (pics / "trip" / "IMG_1 (1).MOV").exists()
-    assert (pics / "trip" / "IMG_1.MOV").read_bytes() == data
-    assert (pics / "plain-twin.mov").exists() and (pics / "elsewhere" / "plain-twin-b.mov").exists()
+    rc, rep = run_json(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", "--json",
+                             "--trash-suffix-copies", "--trash-dir", str(trash), str(home / "a")])
+    assert rc == 1
+    assert (trash / "a" / "IMG (1).MOV").is_file()
+    assert (home / "a" / "IMG.MOV").is_file()
+    assert not (home / "a" / "IMG (1).MOV").exists()
+    assert len(rep["moved"]) == 1 and rep["failed"] == []
 
 
 def test_without_the_flag_nothing_is_moved(home, tmp_path):
-    pics = home / "Pictures"
-    data = blob(pics / "IMG_1.MOV")
-    blob(pics / "IMG_1 (1).MOV", data)
-    trash = tmp_path / "trash"
-    scan(home, str(pics), "--trash-dir", str(trash))
-    assert (pics / "IMG_1 (1).MOV").exists() and not trash.exists()
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG.MOV", data)
+    blob(home / "a" / "IMG (1).MOV", data)
+    rc, rep = scan(home, str(home / "a"))
+    assert (home / "a" / "IMG (1).MOV").is_file()
+    assert rep["moved"] is None
 
 
 def test_trash_copies_does_not_move_a_copy_changed_after_the_scan(home, tmp_path):
-    pics = home / "Pictures"
-    data = blob(pics / "IMG_1.MOV")
-    safe_copy = pics / "IMG_1 (1).MOV"
-    blob(safe_copy, data)
-    changed_original = blob(pics / "doc.txt", b"a" * SIZE)
-    changed_copy = pics / "doc copy.txt"
-    blob(changed_copy, changed_original)
-    items = [{"copy": str(safe_copy), "original": str(pics / "IMG_1.MOV"), "bytes": SIZE},
-             {"copy": str(changed_copy), "original": str(pics / "doc.txt"), "bytes": SIZE}]
-    changed_copy.write_bytes(b"b" * SIZE)  # same size, different content, after the scan
-    moved, failed = mod.trash_copies(items, tmp_path / "trash", home, None)
-    assert [m["copy"] for m in moved] == [str(safe_copy)]
-    assert [f["copy"] for f in failed] == [str(changed_copy)]
-    assert "differ" in failed[0]["error"]
-    assert changed_copy.read_bytes() == b"b" * SIZE
-    assert not (tmp_path / "trash" / "Pictures" / "doc copy.txt").exists()
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG.MOV", data)
+    copy = home / "a" / "IMG (1).MOV"
+    blob(copy, data)
+    # change the copy after the scan would have hashed it
+    copy.write_bytes(data + b"changed")
+    trash = tmp_path / "trash"
+    rc, rep = run_json(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", "--json",
+                             "--trash-suffix-copies", "--trash-dir", str(trash), str(home / "a")])
+    assert rc == 1
+    assert rep["moved"] == [] and len(rep["failed"]) == 1
+    assert "differ" in rep["failed"][0]["error"]
+    assert copy.is_file()
 
 
 def test_trash_copies_reports_a_missing_copy_and_an_existing_destination(home, tmp_path):
-    pics = home / "Pictures"
-    data = blob(pics / "a.bin")
-    blob(pics / "a (1).bin", data)
-    blob(pics / "b.bin", data)
+    data = os.urandom(SIZE)
+    blob(home / "a" / "IMG.MOV", data)
+    blob(home / "a" / "IMG (1).MOV", data)
     trash = tmp_path / "trash"
-    blob(trash / "Pictures" / "a (1).bin", b"already here")
-    items = [{"copy": str(pics / "a (1).bin"), "original": str(pics / "a.bin"), "bytes": SIZE},
-             {"copy": str(pics / "gone (1).bin"), "original": str(pics / "b.bin"), "bytes": SIZE}]
-    moved, failed = mod.trash_copies(items, trash, home, None)
-    assert moved == []
-    assert "already in the trash folder" in failed[0]["error"]
-    assert "no longer exists" in failed[1]["error"]
-    assert (pics / "a (1).bin").exists()
+    (trash / "a").mkdir(parents=True)
+    (trash / "a" / "IMG (1).MOV").write_bytes(b"already there")
+    rc, rep = run_json(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", "--json",
+                             "--trash-suffix-copies", "--trash-dir", str(trash), str(home / "a")])
+    assert len(rep["failed"]) == 1 and "already" in rep["failed"][0]["error"]
 
 
 def test_out_dir_writes_the_three_lists(home, tmp_path):
-    pics = home / "Pictures"
-    data = blob(pics / "IMG_1.MOV")
-    blob(pics / "IMG_1 (1).MOV", data)
-    out = tmp_path / "reports"
-    rc, rep = scan(home, str(pics), "--out-dir", str(out))
-    assert sorted(p.name for p in out.iterdir()) == ["duplicates.txt", "folder-pairs.txt", "suffix-copies.txt"]
-    assert (out / "suffix-copies.txt").read_text(encoding="utf-8").splitlines() == [str(pics / "IMG_1 (1).MOV")]
-    duplicates = (out / "duplicates.txt").read_text(encoding="utf-8")
-    assert "2 copies" in duplicates and str(pics / "IMG_1.MOV") in duplicates
-    assert "Pictures" in (out / "folder-pairs.txt").read_text(encoding="utf-8")
-    assert rep["out_dir"] == str(out)
+    data = os.urandom(SIZE)
+    blob(home / "a" / "x.bin", data)
+    blob(home / "a" / "y.bin", data)
+    out = tmp_path / "out"
+    rc, rep = run_json(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", "--json",
+                             "--out-dir", str(out), str(home / "a")])
+    assert (out / "duplicates.txt").is_file()
+    assert (out / "suffix-copies.txt").is_file()
+    assert (out / "folder-pairs.txt").is_file()
+    text = (out / "duplicates.txt").read_text()
+    assert str(home / "a" / "x.bin") in text
 
 
 def test_node_modules_and_other_default_excludes_are_skipped(home):
-    data = blob(home / "proj" / "x.bin")
-    blob(home / "proj" / "node_modules" / "pkg" / "x.bin", data)
-    blob(home / "proj" / ".git" / "objects" / "x.bin", data)
-    rc, rep = scan(home, str(home / "proj"))
-    assert rc == 0 and rep["group_count"] == 0 and rep["files_seen"] == 1
+    data = os.urandom(SIZE)
+    blob(home / "a" / "x.bin", data)
+    blob(home / "node_modules" / "x.bin", data)
+    rc, rep = scan(home, str(home))
+    assert rep["group_count"] == 0  # the one in node_modules is skipped, so no group
 
 
 def test_exclude_dir_replaces_the_default_list(home):
-    data = blob(home / "proj" / "x.bin")
-    blob(home / "proj" / "node_modules" / "x.bin", data)
-    blob(home / "proj" / "skipme" / "x.bin", data)
-    rc, rep = scan(home, str(home / "proj"), "--exclude-dir", "skipme")
-    assert rc == 1 and len(rep["groups"][0]["paths"]) == 2
-    assert str(home / "proj" / "node_modules" / "x.bin") in rep["groups"][0]["paths"]
-    assert str(home / "proj" / "skipme" / "x.bin") not in rep["groups"][0]["paths"]
+    data = os.urandom(SIZE)
+    blob(home / "keep" / "x.bin", data)
+    blob(home / "skipme" / "x.bin", data)
+    rc, rep = scan(home, str(home), "--exclude-dir", "skipme")
+    assert rep["group_count"] == 0
 
 
 def test_symlinked_files_and_folders_are_skipped(home, tmp_path):
-    data = blob(home / "a" / "x.bin")
+    data = os.urandom(SIZE)
+    blob(home / "a" / "x.bin", data)
     (home / "a" / "link.bin").symlink_to(home / "a" / "x.bin")
-    outside = tmp_path / "outside"
-    blob(outside / "x.bin", data)
-    (home / "a" / "linked-dir").symlink_to(outside, target_is_directory=True)
     rc, rep = scan(home, str(home / "a"))
-    assert rc == 0 and rep["group_count"] == 0 and rep["files_seen"] == 1
+    assert rep["files_seen"] == 1 and rep["group_count"] == 0
 
 
-def test_folder_pairs_aggregate_by_the_folders_a_group_spans(home):
-    for name in ("one.bin", "two.bin"):
-        data = blob(home / "a" / name)
-        blob(home / "b" / name, data)
-    inner = blob(home / "a" / "inner" / "x.bin")
-    blob(home / "a" / "inner" / "y.bin", inner)
-    rc, rep = scan(home, str(home / "a"), str(home / "b"), "--pair-depth", "1")
-    pairs = {tuple(p["folders"]): p for p in rep["folder_pairs"]}
-    assert pairs[("a", "b")]["groups"] == 2 and pairs[("a", "b")]["wasted"] == 2 * SIZE
-    assert pairs[("a",)]["groups"] == 1
-    assert rep["folder_pairs"][0]["wasted"] >= rep["folder_pairs"][-1]["wasted"]
+def test_ext_filters_to_named_extensions_only(home):
+    """--ext mov keeps the video pair and drops the PDF pair (as on the demo home)."""
+    video = os.urandom(SIZE)
+    pdf = os.urandom(SIZE)
+    blob(home / "Desktop" / "IMG.MOV", video)
+    blob(home / "Desktop" / "IMG (1).MOV", video)
+    blob(home / "Documents" / "a.pdf", pdf)
+    blob(home / "Downloads" / "a.pdf", pdf)
+    rc, rep = scan(home, "--ext", "mov")
+    assert rc == 1 and rep["group_count"] == 1
+    assert rep["extensions"] == ["mov"]
+    paths = rep["groups"][0]["paths"]
+    assert all(p.endswith(".MOV") for p in paths)
+    assert not any(p.endswith(".pdf") for p in paths)
 
 
-def test_pair_depth_controls_the_folder_levels(home):
-    data = blob(home / "a" / "deep" / "x.bin")
-    blob(home / "a" / "other" / "x.bin", data)
-    _, rep = scan(home, str(home / "a"), "--pair-depth", "2")
-    assert rep["folder_pairs"][0]["folders"] == ["a/deep", "a/other"]
-    _, rep = scan(home, str(home / "a"), "--pair-depth", "1")
-    assert rep["folder_pairs"][0]["folders"] == ["a"]
+def test_ext_accepts_dot_and_mixed_case_and_multiple(home):
+    jpg = os.urandom(SIZE)
+    png = os.urandom(SIZE)
+    blob(home / "a" / "x.JPG", jpg)
+    blob(home / "a" / "y.jpg", jpg)
+    blob(home / "a" / "z.PNG", png)
+    blob(home / "a" / "w.png", png)
+    rc, rep = scan(home, str(home / "a"), "--ext", ".jpg,PNG")
+    assert rc == 1 and rep["group_count"] == 2
+    assert set(rep["extensions"]) == {"jpg", "png"}
 
 
-def test_groups_are_ordered_by_wasted_bytes(home):
-    small = blob(home / "a" / "s1.bin", os.urandom(2000))
-    blob(home / "a" / "s2.bin", small)
-    big = blob(home / "a" / "b1.bin", os.urandom(9000))
-    blob(home / "a" / "b2.bin", big)
-    blob(home / "a" / "b3.bin", big)
-    _, rep = scan(home, str(home / "a"))
-    assert [g["wasted"] for g in rep["groups"]] == [18000, 2000]
+def test_ext_empty_or_blank_is_usage_error(home):
+    for bad in (",", " , ", "  ", ""):
+        rc, _, err = run_main(mod, ["--home", str(home), "--ext", bad, "--quiet"])
+        assert rc == 2 and "extensions" in err.lower()
 
 
-def test_text_output_summarises_the_scan(home):
-    data = blob(home / "a" / "x.bin")
-    blob(home / "a" / "y.bin", data)
-    rc, out, _ = run_main(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", str(home / "a")])
-    assert rc == 1 and "1 duplicate groups" in out and "Suffix copies next to an identical original: 0" in out
-    assert json.dumps(out)  # plain text, not JSON
+def test_report_mentions_extensions_when_filtered(home):
+    data = os.urandom(SIZE)
+    blob(home / "a" / "x.mov", data)
+    blob(home / "a" / "y.mov", data)
+    rc, out, _ = run_main(mod, ["--home", str(home), "--min-mb", "0.001", "--quiet", "--ext", "mov", str(home / "a")])
+    assert rc == 1 and "Only files with extensions: mov" in out

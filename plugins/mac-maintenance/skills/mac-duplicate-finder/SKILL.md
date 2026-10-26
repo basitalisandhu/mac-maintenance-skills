@@ -25,13 +25,13 @@ Say "identical" only for files the script hashed in full. Wasted space is the si
 
 ## Procedure
 
-1. **Run the scan** on the user's folders (the default roots are Desktop, Documents, Pictures, Downloads, Movies and Music; pass folders to narrow it). Write the lists to a dated folder in the working directory so the user can open them:
+1. **Run the scan** on the user's folders (the default roots are Desktop, Documents, Pictures, Downloads, Movies and Music under `--home`).
 
    ```bash
-   python3 "${CLAUDE_PLUGIN_ROOT}/skills/mac-duplicate-finder/scripts/find_dupes.py" --out-dir mac-cleanup-$(date +%F) --json > dupes.json
+   python3 "${CLAUDE_PLUGIN_ROOT}/skills/mac-duplicate-finder/scripts/find_dupes.py"
    ```
 
-   Options: `--min-mb` (default 2) sets the smallest file considered, `--exclude-dir` adds folder names to skip (default node_modules, .git, Library, .Trash), `--pair-depth` sets how many folder levels the pair table uses. A scan of a few hundred thousand files takes minutes; progress goes to stderr.
+   Options: `--min-mb` (default 2) sets the smallest file considered, `--ext LIST` limits the scan to files whose extension is in the comma-separated list (case-insensitive, with or without the leading dot, e.g. `mov,mp4,heic,jpg`; the report names the extensions so a filtered run is not mistaken for a full one), `--exclude-dir` adds folder names to skip (default node_modules, .git, Library, .Trash), `--pair-depth` sets how many folder levels the pair table uses. A scan of a few hundred thousand files takes minutes; progress goes to stderr.
 
 2. **Read three things** from the output: the largest groups (what the wasted gigabytes actually are), the folder-pair table (which folders mirror each other), and the suffix-copy count. Open `duplicates.txt` in the out folder for the full list; `suffix-copies.txt` has one path per line.
 
@@ -70,20 +70,6 @@ Exit codes: 0 no duplicate groups, 1 duplicates found (or copies moved), 2 bad i
 | Wasted | Copies | What it is | Where |
 |---|---|---|---|
 | 1.8 GB | 2 x 1.8 GB | a video exported twice | Desktop/Mine/Iphone 7/Pics/2019-07 |
-
-**Folders that mirror each other:** <pair>: <size>, <what it looks like>, <recommendation if any>
-**Suffix copies next to an identical original:** <n> files, <size>. Safe to move to the Trash; say yes and I will.
 ```
 
-## Limits
-
-- Content equality only: an edited, resized, rotated or re-encoded copy is a different file to this script.
-- Files below `--min-mb` are not compared; lower it for documents, at the cost of time.
-- Hashing reads every candidate in full, so a scan over external or network volumes is slow; point it at local folders.
-- Sandboxed or permission-protected folders that Python cannot read are skipped silently by the walk; the counts tell you how much was seen.
-- The suffix pattern is name-based (" (1)", " copy"); a copy saved under an unrelated name is reported in its group but never moved automatically.
-
-## Related
-
-- `mac-cleanup` for the whole procedure this fits into.
-- `mac-app-leftovers` for the other kind of waste: data of apps that are gone.
+The "what it is" column is yours to write from the paths; the script does not classify files.

@@ -47,9 +47,11 @@ def human(n: int | float | None) -> str:
     return f"{value:.1f} TB"
 
 
-def walk(roots: list[Path], excludes: set[str], min_bytes: int, progress) -> tuple[dict[int, list[Path]], int, int]:
+def walk(roots: list[Path], excludes: set[str], min_bytes: int, progress,
+         extensions: set[str] | None = None) -> tuple[dict[int, list[Path]], int, int]:
     """Group regular files by size. Files whose data is not on disk (iCloud placeholders, sparse files: fewer
-    than half the blocks their size needs) are counted and skipped, because hashing one would download it."""
+    than half the blocks their size needs) are counted and skipped, because hashing one would download it.
+    If extensions is given (lowercased, no leading dot), only files with those suffixes are considered."""
     by_size: dict[int, list[Path]] = defaultdict(list)
     seen = dataless = 0
     for root in roots:
@@ -64,6 +66,10 @@ def walk(roots: list[Path], excludes: set[str], min_bytes: int, progress) -> tup
                 if not os.path.isfile(full) or os.path.islink(full):
                     continue
                 seen += 1
+                if extensions is not None:
+                    ext = Path(name).suffix.lower().lstrip(".")
+                    if ext not in extensions:
+                        continue
                 if st.st_size < min_bytes:
                     continue
                 if st.st_blocks * 512 < st.st_size // 2:
@@ -144,7 +150,7 @@ def folder_pairs(groups: list[dict], home: Path, depth: int) -> list[dict]:
                 rel = Path(p).relative_to(home).parts[:-1]
             except ValueError:
                 rel = Path(p).parts[1:-1]
-            keys.append("/".join(rel[:depth]) or ".")
+            keys.append("/ ".join(rel[:depth]) or ".")
         key = tuple(sorted(set(keys)))
         entry = totals.setdefault(key, {"folders": list(key), "wasted": 0, "groups": 0})
         entry["wasted"] += g["wasted"]
@@ -181,6 +187,8 @@ def trash_copies(copies: list[dict], trash_dir: Path, base: Path, progress) -> t
 def render(result: dict, top: int) -> str:
     lines = [f"Scanned {result['files_seen']} files in {len(result['roots'])} roots; "
              f"{result['group_count']} duplicate groups; {human(result['wasted_bytes'])} wasted"]
+    if result.get("extensions"):
+        lines.append(f"Only files with extensions: {', '.join(result['extensions'])}")
     if result.get("files_dataless"):
         lines.append(f"Skipped {result['files_dataless']} files whose data is not on disk "
                      "(iCloud placeholders or sparse files); hashing them would download them")
@@ -253,6 +261,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--home", default=str(Path.home()), help="home folder (default: your home)")
     ap.add_argument("--min-mb", type=non_negative_float, default=2.0,
                     help="smallest file to consider in MB (default 2)")
+    ap.add_argument("--ext", default=None,
+                    help="comma-separated list of extensions to include (case-insensitive, with or without "
+                         "the leading dot; e.g. mov,mp4,.heic,jpg). Only files with these extensions are "
+                         "grouped and hashed. Empty or blank values are an error.")
     ap.add_argument("--exclude-dir", action="append", default=None,
                     help=f"directory name to skip (repeatable; default {', '.join(DEFAULT_EXCLUDES)})")
     ap.add_argument("--pair-depth", type=positive_int, default=3,
@@ -265,6 +277,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", help="print the result as JSON")
     ap.add_argument("--quiet", action="store_true", help="no progress lines on stderr")
     args = ap.parse_args(argv)
+
+    # Validate --ext early: it is a pure usage error and does not depend on the filesystem.
+    extensions = None
+    if args.ext is not None:
+        raw = [e.strip().lstrip(".").lower() for e in args.ext.split(",") if e.strip()]
+        if not raw:
+            print("error: --ext requires one or more extensions (got empty or blank list)", file=sys.stderr)
+            return 2
+        extensions = set(raw)
 
     home = Path(args.home).expanduser()
     if not home.is_dir():
@@ -281,10 +302,11 @@ def main(argv: list[str] | None = None) -> int:
     excludes = set(args.exclude_dir) if args.exclude_dir else set(DEFAULT_EXCLUDES)
     progress = None if args.quiet else (lambda m: print(f"[dupes] {m}", file=sys.stderr, flush=True))
 
-    by_size, seen, dataless = walk(roots, excludes, int(args.min_mb * 1024 * 1024), progress)
+    by_size, seen, dataless = walk(roots, excludes, int(args.min_mb * 1024 * 1024), progress, extensions)
     groups = find_groups(by_size, progress)
     copies = suffix_copies(groups)
     result = {"home": str(home), "roots": [str(r) for r in roots], "files_seen": seen, "files_dataless": dataless,
+              "extensions": sorted(extensions) if extensions else None,
               "group_count": len(groups),
               "wasted_bytes": sum(g["wasted"] for g in groups), "groups": groups,
               "folder_pairs": folder_pairs(groups, home, args.pair_depth), "suffix_copies": copies,
