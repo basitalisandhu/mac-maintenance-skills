@@ -1,0 +1,77 @@
+name: release
+
+# Publishes the GitHub release when a version tag (v*) is pushed. It checks that the tag matches the version in
+# plugin.json and marketplace.json, runs the linter, the tests and the validator on macOS (the skills are macOS-only),
+# and creates the release with the tag's CHANGELOG section as its notes. Only GITHUB_TOKEN is used.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Check and publish the release
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Check the tag matches every version in the manifests
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          plugin = json.load(open("plugins/mac-maintenance/.claude-plugin/plugin.json", encoding="utf-8"))
+          market = json.load(open(".claude-plugin/marketplace.json", encoding="utf-8"))
+          versions = {"plugin.json": plugin["version"], "marketplace metadata": market["metadata"]["version"]}
+          versions.update({f"marketplace {p['name']}": p["version"] for p in market["plugins"]})
+          wrong = {k: v for k, v in versions.items() if f"v{v}" != tag}
+          if wrong:
+              sys.exit(f"tag {tag} does not match {wrong}")
+          print(f"{tag} matches {versions}")
+          PY
+      - name: Lint, tests and validator
+        run: |
+          python3 -m pip install pytest ruff
+          ruff check .
+          python3 -m pytest -q
+          python3 scripts/validate_plugin.py
+      - name: Release notes from the CHANGELOG section for this version
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)", text, re.M | re.S)
+          if not m or not m.group(1).strip():
+              sys.exit(f"CHANGELOG.md has no section for {version}")
+          open("release-notes.md", "w", encoding="utf-8").write(m.group(1).strip() + "\n")
+          PY
+      - name: Create the release, or update its notes if it already exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+          fi

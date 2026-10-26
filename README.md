@@ -77,9 +77,9 @@ $ python3 plugins/mac-maintenance/skills/mac-app-leftovers/scripts/app_leftovers
 Installed apps known: 0 (bundle ids), scanned 9 areas under demo-home/Library
 
 Leftover candidates (3, 6.0 MB); confirm each before moving it:
-      4.0 MB  changed 2026-10-18  app data                    app-support:QuillNote
-      2.0 MB  changed 2026-10-18  cache or log (regenerable)  caches:net.quillnote.QuillNote
-        4 KB  changed 2026-10-18  app data                    preferences:net.quillnote.QuillNote.plist
+      4.0 MB  changed 2026-09-01  app data                    app-support:QuillNote
+      2.0 MB  changed 2026-09-01  cache or log (regenerable)  caches:net.quillnote.QuillNote
+        4 KB  changed 2026-09-01  app data                    preferences:net.quillnote.QuillNote.plist
 
 $ python3 plugins/mac-maintenance/skills/mac-cleanup/scripts/safe_clean.py --home demo-home --tmpdir demo-home/tmp --no-commands --only npm-cache,old-logs,xcode-derived-data
 Mode: dry run (nothing changed; add --apply)
@@ -110,11 +110,13 @@ plugins/mac-maintenance/
 ├── README.md                                         the plugin's skill table
 └── skills/<name>/
     ├── SKILL.md                                      triggers, honesty principle, procedure, output format, limits
+    ├── README.md                                     the commands to try it on the demo home, with real output
     ├── references/                                   (mac-cleanup) how to judge worktrees, caches, apps, memory
     └── scripts/<script>.py                           standard library only, --help, --json, exit codes 0/1/2
 tests/test_<script>.py                                pytest suite, offline, runs on macOS and Linux
 scripts/validate_plugin.py                            structure, frontmatter, scripts, READMEs, house style
 scripts/demo_home.py                                  builds the synthetic demo home used for the samples above
+scripts/skill_readmes.py                              writes each skill README from a fresh run (--check compares)
 ```
 
 Each skill folder is self-contained: its scripts live inside it, so it can be copied on its own.
@@ -146,7 +148,7 @@ python3 scripts/validate_plugin.py
 claude plugin validate --strict . && claude plugin validate --strict plugins/mac-maintenance
 ```
 
-CI runs the tests on Ubuntu and macOS with Python 3.11 to 3.13, and a dry run of every script against the macOS runner's home folder. See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and [docs/good-first-issues.md](docs/good-first-issues.md) for a place to start.
+CI runs the tests on Ubuntu and macOS with Python 3.11 to 3.13, and a dry run of every script against the macOS runner's home folder. The tests include seeded fuzz runs over malformed plists and odd file names (`tests/test_fuzz_inputs.py`), one end-to-end cleanup across all three skills on the demo home (`tests/test_integration_chain.py`), and a check that every skill README still matches a fresh run (macOS only). Pushing a `v*` tag runs `release.yml`, which checks the tag against the versions in the manifests, runs the tests and publishes the GitHub release with the CHANGELOG section. See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and [docs/good-first-issues.md](docs/good-first-issues.md) for a place to start.
 
 ## Frequently asked questions
 

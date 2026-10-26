@@ -10,7 +10,8 @@
 
 Planted: two byte-identical videos (one a " (1)" suffix copy) and a PDF saved in both Documents and Downloads;
 leftovers of an app that is not installed (Application Support, Caches, Preferences); an npm cache and a log file
-older than seven days for the safe tier. File contents come from a fixed seed, so every run gives the same sizes.
+older than seven days for the safe tier. Every planted file and folder is dated 1 September 2026, and file
+contents come from a fixed seed, so every run gives the same sizes and dates.
 Standard library only; writes only inside the folder you name, which must not exist yet or be empty.
 """
 from __future__ import annotations
@@ -21,10 +22,12 @@ import os
 import random
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 MB = 1024 * 1024
 OLD_DAYS = 10
+STAMP = datetime(2026, 9, 1, 12, 0)  # local noon, so the date is the same in every time zone
 
 
 def blob(seed: int, size: int) -> bytes:
@@ -49,10 +52,13 @@ def build(home: Path) -> dict:
         path = home / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    old = time.time() - OLD_DAYS * 86400
-    os.utime(home / "Library/Logs/QuillNote/old.log", (old, old))
     for rel in ("Applications", "tmp"):
         (home / rel).mkdir(parents=True, exist_ok=True)
+    # Every planted file and folder gets the same fixed time, so "last changed" dates in the output are the same on
+    # every run (the README samples rely on it). It is long enough ago for the log to count as old.
+    stamp = min(STAMP.timestamp(), time.time() - OLD_DAYS * 86400)
+    for path in sorted(home.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        os.utime(path, (stamp, stamp), follow_symlinks=False)
     return {"home": str(home), "files": sorted(files), "duplicate_groups": 2, "suffix_copies": 1,
             "leftover_app": "QuillNote"}
 

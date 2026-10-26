@@ -1,4 +1,6 @@
+import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -243,3 +245,27 @@ def test_text_output_describes_the_mode(home, tmpdir_):
     assert rc == 1 and "dry run" in out and "npm-cache" in out
     rc, out, _ = run_main(mod, [*plain, "--apply"])
     assert rc == 0 and "Mode: apply" in out and Path(home / ".npm" / "_cacache").exists() is False
+
+
+def test_list_actions_prints_every_action_and_touches_nothing(tmp_path, monkeypatch):
+    def no_commands(*_a, **_k):
+        raise AssertionError("--list-actions must not run a command")
+
+    monkeypatch.setattr(mod.subprocess, "run", no_commands)
+    missing_home = tmp_path / "no-such-home"
+    rc, out, err = run_main(mod, ["--list-actions", "--home", str(missing_home)])
+    assert rc == 0 and err == ""
+    lines = out.splitlines()
+    assert [line.split()[0] for line in lines] == mod.ACTION_IDS
+    assert all(len(line.split(None, 1)) == 2 for line in lines)
+    assert not missing_home.exists()
+
+
+def test_list_actions_json_and_the_table_matches_the_ids():
+    rc, out, _ = run_main(mod, ["--list-actions", "--json"])
+    assert rc == 0
+    data = json.loads(out)
+    assert [d["id"] for d in data] == mod.ACTION_IDS == list(mod.ACTIONS)
+    assert all(d["description"].strip() for d in data)
+    documented = set(re.findall(r"^  ([a-z][a-z-]+)\s{2,}", mod.__doc__, re.MULTILINE))
+    assert documented == set(mod.ACTION_IDS)

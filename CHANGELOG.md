@@ -4,6 +4,29 @@ All notable changes to this project are documented here. The format follows Keep
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-26
+
+### Added
+
+- `safe_clean.py --list-actions` prints every action id with what it removes and when it is skipped, then exits 0 without reading the home folder or running any command; `--json` gives a list of `{id, description}`. The descriptions live in one table next to `ACTION_IDS`, and a test holds the table, the ids and the docstring together. Closes #10.
+- A `README.md` in each skill folder with the commands to try it on the demo home and the real output. `scripts/skill_readmes.py` writes them, and on macOS the tests rerun every command and fail when a README has drifted.
+- `.github/workflows/release.yml`: pushing a `v*` tag checks the tag against the versions in `plugin.json` and `marketplace.json`, runs the linter, tests and validator on macOS, and publishes the GitHub release with this file's section as notes.
+- `tests/test_fuzz_inputs.py`: seeded fuzz runs over synthetic homes with malformed, truncated and wrongly typed plists, odd file names, dangling and looping symbolic links and duplicate files, requiring exit 0, 1 or 2 with no traceback from every script, including the trash moves (into a folder inside the test's own temporary folder).
+- `tests/test_integration_chain.py`: one cleanup across all three skills on the demo home: survey, move the suffix copy and the app leftovers to a Trash folder, apply the safe tier, survey again.
+- `tests/test_scaling.py`: an equivalence check and a timing check for the leftovers matcher below.
+
+### Fixed
+
+- `mac_survey.py` and `app_leftovers.py` stopped with a traceback on an app's `Info.plist` or a launch agent plist that was truncated XML, a corrupt binary plist, a list or number instead of a dictionary, a `Program` or `ProgramArguments` of the wrong type, or a program path too long to look up; and `mac_survey.py --json` failed on a version stored as a date. Such files are now read as having no data, and only string values are used.
+- `safe_clean.py`, `mac_survey.py` and `app_leftovers.py` treat a login item path the system cannot look up as missing instead of stopping.
+- `app_leftovers.py` compared every Library entry with every installed name and every tool on `PATH`. With 3,000 tools on `PATH` and 18,000 entries in a synthetic home it took 3.55 seconds; it now builds a name index once and takes 0.26 seconds. The reason it prints for a match ("name contains installed name: ...") now names the first match in sorted order, so it no longer changes between runs.
+
+### Changed
+
+- `scripts/demo_home.py` dates every planted file and folder 1 September 2026, so "last changed" dates in the samples are the same on every run.
+- `mac-duplicate-finder` description now says it moves "the (1) copies of videos and photos". On the labelled trigger prompts (5 should-trigger and 5 should-not-trigger per skill, other skills' prompts counted as negatives) its recall rose from 0.80 to 1.00; pooled precision stays 1.00 and pooled recall rises from 0.93 to 1.00.
+- Version 0.2.0 in `plugin.json` and `marketplace.json`.
+
 ## [0.1.4] - 2026-10-18
 
 ### Fixed
